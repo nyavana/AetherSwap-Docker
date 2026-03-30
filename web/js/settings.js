@@ -460,13 +460,14 @@ function _showWizard(startAtBuffStep = false) {
     buffOpenBtn.onclick = async () => {
       buffOpenBtn.disabled = true;
       const statusEl = el("wiz-buff-status");
-      if (statusEl) statusEl.textContent = "正在打开浏览器，请稍候…";
+      if (statusEl) statusEl.textContent = "正在加载二维码，请稍候…";
       try {
         const r = await fetchJson(API + "/auth/buff/relogin_start", { method: "POST" });
         if (r.ok) {
           _buffReloginStarted = true;
-          if (statusEl) statusEl.textContent = "✅ 浏览器已打开，请在其中完成 Buff 登录后点击「已完成登录」。";
+          if (statusEl) statusEl.textContent = "请使用手机 APP 扫描下方二维码";
           if (buffDoneBtn) buffDoneBtn.disabled = false;
+          if (typeof startBuffQrPolling === "function") startBuffQrPolling("wiz-buff-qr-img");
         } else {
           if (statusEl) statusEl.textContent = "❌ 打开失败：" + (r.error || "请检查运行环境");
           buffOpenBtn.disabled = false;
@@ -539,6 +540,7 @@ function _showWizard(startAtBuffStep = false) {
   }
 
   function closeWizard(goToTab) {
+    if (typeof stopBuffQrPolling === "function") stopBuffQrPolling();
     // 如果用户在 Buff 步骤打开了浏览器但没点「已完成」，发送 cancel
     if (_buffReloginStarted) {
       fetchJson(API + "/auth/buff/relogin_finish", {

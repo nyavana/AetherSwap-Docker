@@ -1759,6 +1759,15 @@
     <div class="relogin-modal">
       <h3 id="relogin-title">Steam 登录已过期</h3>
       <p id="relogin-message">登录已过期，请在弹出的浏览器中重新登录 Steam，完成后点击下方按钮继续。</p>
+      <div id="relogin-qr-area" class="hidden" style="text-align:center;margin:16px 0;">
+        <img id="relogin-qr-img" alt="Buff 登录二维码"
+             style="max-width:256px;border-radius:8px;border:1px solid var(--border);" />
+        <p id="relogin-qr-hint" style="margin-top:8px;color:var(--muted);">
+          请使用手机 APP 扫描此二维码</p>
+        <p id="relogin-auto-status" class="hidden"
+           style="color:var(--accent);font-weight:600;margin-top:8px;">
+          检测到登录成功，正在保存...</p>
+      </div>
       <div class="relogin-actions">
         <button type="button" id="relogin-btn-open" class="btn btn-primary">打开浏览器并登录</button>
         <button type="button" id="relogin-btn-ok" class="btn btn-primary" disabled>完成登录</button>
@@ -1864,6 +1873,11 @@
           <button type="button" id="wiz-buff-done" class="btn btn-primary" disabled>已完成登录 ✓</button>
         </div>
         <div id="wiz-buff-status" class="wizard-hint" style="margin-top:10px"></div>
+        <div id="wiz-buff-qr-area" class="hidden" style="text-align:center;margin:12px 0;">
+          <img id="wiz-buff-qr-img" alt="Buff 登录二维码"
+               style="max-width:220px;border-radius:8px;border:1px solid var(--border);" />
+          <p style="margin-top:8px;color:var(--muted);">请使用手机 APP 扫描此二维码</p>
+        </div>
         <p class="wizard-hint">可跳过，后续在运行过程中若 Buff 登录过期也会自动提示重新登录。</p>
       </div>
 

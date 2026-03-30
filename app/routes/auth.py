@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter
+from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
 from app.state import log, set_buff_auth_expired
 from app.config_loader import (
@@ -33,8 +34,30 @@ _relogin_wake = threading.Event()
 _relogin_done = threading.Event()
 _relogin_success = False
 _relogin_error = None
+_relogin_screenshot: Optional[bytes] = None
+_relogin_login_detected = threading.Event()
 class ReloginFinishBody(BaseModel):
     success: bool
+def _capture_qr_screenshot(page) -> None:
+    global _relogin_screenshot
+    selectors = ["#login-qr img", ".qr-image", "canvas", 'img[src*="qr"]']
+    shot = None
+    for sel in selectors:
+        try:
+            elem = page.query_selector(sel)
+            if elem and elem.is_visible():
+                shot = elem.screenshot(type="png")
+                break
+        except Exception:
+            continue
+    if not shot:
+        try:
+            shot = page.screenshot(type="png")
+        except Exception:
+            pass
+    if shot:
+        with _relogin_lock:
+            _relogin_screenshot = shot
 def _relogin_worker(relogin_type: str) -> None:
     global _relogin_playwright, _relogin_browser, _relogin_context, _relogin_error, _relogin_success
     try:
@@ -46,16 +69,39 @@ def _relogin_worker(relogin_type: str) -> None:
         else:
             profile_dir = Path(__file__).resolve().parent.parent.parent / "config" / "playwright_buff"
         profile_dir.mkdir(parents=True, exist_ok=True)
-        context = p.chromium.launch_persistent_context(str(profile_dir), headless=False)
+        is_buff = (relogin_type == "buff")
+        context = p.chromium.launch_persistent_context(
+            str(profile_dir),
+            headless=is_buff,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+            ] if is_buff else [],
+        )
         page = context.pages[0] if context.pages else context.new_page()
         url = "https://store.steampowered.com/login/" if relogin_type == "steam" else "https://buff.163.com/login"
         page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        if relogin_type == "steam":
-            pass
         with _relogin_lock:
             _relogin_playwright, _relogin_browser, _relogin_context = p, None, context
-        _relogin_ready.set()
-        _relogin_wake.wait()
+        if is_buff:
+            page.wait_for_timeout(3000)
+            _capture_qr_screenshot(page)
+            _relogin_ready.set()
+            deadline = time.time() + 300  # 5-minute timeout
+            while not _relogin_wake.is_set():
+                if time.time() > deadline:
+                    _relogin_error = "登录超时（5分钟），请重试"
+                    break
+                _capture_qr_screenshot(page)
+                cookies = context.cookies()
+                if any(c.get("name") == "session" for c in cookies):
+                    _relogin_login_detected.set()
+                if _relogin_wake.wait(timeout=2.0):
+                    break
+        else:
+            _relogin_ready.set()
+            _relogin_wake.wait()
         if _relogin_success:
             if relogin_type == "steam":
                 try:
@@ -116,9 +162,10 @@ def _relogin_worker(relogin_type: str) -> None:
             _relogin_playwright = None
             _relogin_browser = None
             _relogin_context = None
+            _relogin_screenshot = None
         _relogin_done.set()
 def _relogin_start(relogin_type: str):
-    global _relogin_type, _relogin_error, _relogin_success, _relogin_playwright, _relogin_browser, _relogin_context
+    global _relogin_type, _relogin_error, _relogin_success, _relogin_playwright, _relogin_browser, _relogin_context, _relogin_screenshot
     with _relogin_lock:
         if _relogin_context or _relogin_browser:
             try:
@@ -139,6 +186,8 @@ def _relogin_start(relogin_type: str):
         _relogin_type = relogin_type
         _relogin_error = None
         _relogin_success = False
+        _relogin_screenshot = None
+    _relogin_login_detected.clear()
     _relogin_ready.clear()
     _relogin_done.clear()
     _relogin_wake.clear()
@@ -148,14 +197,15 @@ def _relogin_start(relogin_type: str):
         return {"ok": False, "error": "打开浏览器超时"}
     if _relogin_error:
         return {"ok": False, "error": _relogin_error}
-    msg = "请在弹出的浏览器中完成 Steam 登录" if relogin_type == "steam" else "请在弹出的浏览器中完成 Buff 登录"
+    msg = "请在弹出的浏览器中完成 Steam 登录" if relogin_type == "steam" else "请使用手机扫描二维码完成 Buff 登录"
     return {"ok": True, "message": msg}
 def _relogin_finish(success: bool):
-    global _relogin_success, _relogin_context
+    global _relogin_success, _relogin_context, _relogin_screenshot
     with _relogin_lock:
         if not _relogin_context:
             return {"ok": False, "error": "未在重新登录流程中"}
         _relogin_success = success
+        _relogin_screenshot = None
     _relogin_wake.set()
     _relogin_done.wait(timeout=15)
     return {"ok": True}
@@ -192,6 +242,23 @@ def api_auth_buff_relogin_start():
 @router.post("/api/auth/buff/relogin_finish")
 def api_auth_buff_relogin_finish(body: ReloginFinishBody):
     return _relogin_finish(body.success)
+@router.get("/api/auth/buff/qr_screenshot")
+def api_auth_buff_qr_screenshot():
+    with _relogin_lock:
+        if _relogin_screenshot and _relogin_type == "buff":
+            return Response(content=_relogin_screenshot, media_type="image/png")
+    return JSONResponse(status_code=404, content={"error": "no screenshot"})
+@router.get("/api/auth/buff/relogin_status")
+def api_auth_buff_relogin_status():
+    with _relogin_lock:
+        active = _relogin_type == "buff" and _relogin_context is not None
+        has_ss = _relogin_screenshot is not None
+    return {
+        "active": active,
+        "login_detected": _relogin_login_detected.is_set(),
+        "has_screenshot": has_ss,
+        "error": _relogin_error,
+    }
 @router.get("/api/steam_guard")
 def api_steam_guard():
     cfg = load_app_config_validated()

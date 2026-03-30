@@ -191,8 +191,8 @@ docker run -d \
 >
 > **环境变量**：可通过 `AETHER_HOST`（默认 `0.0.0.0`）和 `AETHER_PORT`（默认 `28472`）自定义监听地址。
 
-> [!WARNING]
-> **Buff 手动扫码登录**在容器中不可用（无显示器）。请先在本地完成首次登录，将 `config/` 目录中的凭证文件复制到容器卷中；或使用 steampy 自动登录（需配置 `shared_secret`）。
+> [!TIP]
+> **Buff 登录**：Docker 容器中无需显示器。点击 Web 控制台中的「获取登录二维码」，系统会在后台启动无头浏览器并将 Buff 登录二维码截图显示在页面上，使用手机 APP 扫码即可完成登录，登录成功后自动保存 Cookie。
 
 ### 引导流程（约 3 分钟）
 
@@ -344,7 +344,7 @@ python -m uvicorn app.api:app --host 0.0.0.0 --port 28472
 <details>
 <summary><b>Q：Buff Cookie 过期了怎么办？</b></summary>
 
-在 Web 控制台的【账号管理】中点击「重新登录」，系统将自动拉起内嵌浏览器完成重新授权，Cookie 刷新后自动保存，无需手动操作。
+系统会自动弹出重新登录弹窗。点击「获取登录二维码」，页面上会显示 Buff 登录二维码（每 3 秒自动刷新），使用手机 Buff APP 扫码后系统自动检测登录成功并保存 Cookie。此流程在 Docker 容器和桌面环境中均可使用。
 
 </details>
 

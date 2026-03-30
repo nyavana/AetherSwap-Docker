@@ -138,7 +138,12 @@ async function openBrowserAndLogin() {
   try {
     const d = await fetchJson(API + "/auth/" + reloginType + "/relogin_start", { method: "POST" });
     if (d.ok) {
-      toast("已打开浏览器", d.message || "");
+      if (reloginType === "buff") {
+        toast("正在加载二维码", d.message || "");
+        startBuffQrPolling("relogin-qr-img");
+      } else {
+        toast("已打开浏览器", d.message || "");
+      }
       const btnOk = el("relogin-btn-ok");
       if (btnOk) btnOk.disabled = false;
     } else {
@@ -149,6 +154,7 @@ async function openBrowserAndLogin() {
   }
 }
 async function finishRelogin(success) {
+  stopBuffQrPolling();
   const btnOk = el("relogin-btn-ok");
   const btnFail = el("relogin-btn-fail");
   const btnOpen = el("relogin-btn-open");
@@ -329,4 +335,64 @@ async function saveAccountForm() {
   } catch (e) {
     toast("保存失败", e.message || "");
   }
+}
+
+// --- Buff QR polling ---
+let _buffQrImgInterval = null;
+let _buffQrStatusInterval = null;
+let _buffQrActiveImgId = null;
+
+function startBuffQrPolling(qrImgId) {
+  stopBuffQrPolling();
+  _buffQrActiveImgId = qrImgId;
+
+  // Show QR areas
+  const reloginQrArea = el("relogin-qr-area");
+  const wizQrArea = el("wiz-buff-qr-area");
+  if (qrImgId === "relogin-qr-img" && reloginQrArea) reloginQrArea.classList.remove("hidden");
+  if (qrImgId === "wiz-buff-qr-img" && wizQrArea) wizQrArea.classList.remove("hidden");
+
+  // Immediately load the first screenshot
+  const img = el(qrImgId);
+  if (img) img.src = API + "/auth/buff/qr_screenshot?t=" + Date.now();
+
+  // Refresh screenshot every 3 seconds
+  _buffQrImgInterval = setInterval(() => {
+    const img = el(_buffQrActiveImgId);
+    if (img) img.src = API + "/auth/buff/qr_screenshot?t=" + Date.now();
+  }, 3000);
+
+  // Poll relogin status every 2 seconds
+  _buffQrStatusInterval = setInterval(async () => {
+    try {
+      const s = await fetchJson(API + "/auth/buff/relogin_status");
+      if (s.login_detected) {
+        const autoStatus = el("relogin-auto-status");
+        if (autoStatus) autoStatus.classList.remove("hidden");
+        stopBuffQrPolling();
+        finishRelogin(true);
+      }
+      if (s.error) {
+        stopBuffQrPolling();
+        toast("登录失败", s.error);
+      }
+      if (!s.active) {
+        stopBuffQrPolling();
+      }
+    } catch {
+      // ignore transient fetch errors
+    }
+  }, 2000);
+}
+
+function stopBuffQrPolling() {
+  if (_buffQrImgInterval) { clearInterval(_buffQrImgInterval); _buffQrImgInterval = null; }
+  if (_buffQrStatusInterval) { clearInterval(_buffQrStatusInterval); _buffQrStatusInterval = null; }
+  _buffQrActiveImgId = null;
+  const reloginQrArea = el("relogin-qr-area");
+  const wizQrArea = el("wiz-buff-qr-area");
+  if (reloginQrArea) reloginQrArea.classList.add("hidden");
+  if (wizQrArea) wizQrArea.classList.add("hidden");
+  const autoStatus = el("relogin-auto-status");
+  if (autoStatus) autoStatus.classList.add("hidden");
 }

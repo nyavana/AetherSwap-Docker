@@ -203,7 +203,9 @@ function showReloginModal(type, opts = {}) {
   const msg = el("relogin-message");
   if (reloginType === "buff") {
     if (title) title.textContent = "Buff 登录已过期";
-    if (msg) msg.textContent = "登录已过期，请在弹出的浏览器中重新登录 Buff，完成后点击下方按钮继续。";
+    if (msg) msg.textContent = "点击下方按钮获取登录二维码，使用手机 APP 扫描完成登录。";
+    const btnOpen = el("relogin-btn-open");
+    if (btnOpen) btnOpen.textContent = "获取登录二维码";
   } else {
     if (title) title.textContent = "Steam 登录已过期";
     if (opts.reason === "need_2fa") {
@@ -218,8 +220,12 @@ function showReloginModal(type, opts = {}) {
   if (btnOk) btnOk.disabled = false;
 }
 function hideReloginModal() {
+  if (typeof stopBuffQrPolling === "function") stopBuffQrPolling();
   const overlay = el("relogin-overlay");
   if (overlay) overlay.classList.add("hidden");
+  // Reset button text for next use
+  const btnOpen = el("relogin-btn-open");
+  if (btnOpen) btnOpen.textContent = "打开浏览器并登录";
 }
 async function refreshInventory(forceRefresh = true) {
   try {
