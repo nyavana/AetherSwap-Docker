@@ -33,7 +33,11 @@ def _try_buff_auto_relogin_impl() -> tuple:
         with sync_playwright() as p:
             context = p.chromium.launch_persistent_context(
                 str(profile_dir), headless=True,
-                args=["--disable-blink-features=AutomationControlled"],
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                ],
             )
             page = context.pages[0] if context.pages else context.new_page()
             page.goto("https://buff.163.com/", wait_until="domcontentloaded", timeout=30000)

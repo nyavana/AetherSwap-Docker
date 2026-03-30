@@ -160,7 +160,39 @@ python run.py
 
 程序启动后将自动弹出 Web 控制台，按照首页的**「快速开始」**卡片引导完成配置即可。
 
+### Docker 部署（推荐服务器用户）
 
+无需安装 Python 环境，一条命令即可启动：
+
+**使用 Docker Compose（推荐）：**
+
+```bash
+git clone https://github.com/VexedWilosn/AetherSwap.git
+cd AetherSwap
+docker compose up -d
+```
+
+**或手动构建运行：**
+
+```bash
+docker build -t aetherswap .
+docker run -d \
+  --name aetherswap \
+  -p 28472:28472 \
+  -v aether-config:/app/config \
+  --restart unless-stopped \
+  aetherswap
+```
+
+启动后访问 `http://<服务器IP>:28472` 打开 Web 控制台。
+
+> [!TIP]
+> **数据持久化**：`config/` 目录通过 Docker Volume 挂载，凭证、数据库和配置在容器重建后自动保留。
+>
+> **环境变量**：可通过 `AETHER_HOST`（默认 `0.0.0.0`）和 `AETHER_PORT`（默认 `28472`）自定义监听地址。
+
+> [!WARNING]
+> **Buff 手动扫码登录**在容器中不可用（无显示器）。请先在本地完成首次登录，将 `config/` 目录中的凭证文件复制到容器卷中；或使用 steampy 自动登录（需配置 `shared_secret`）。
 
 ### 引导流程（约 3 分钟）
 
@@ -246,7 +278,10 @@ AetherSwap/
 ├── utils/                 # 公共工具（代理、推送、配置等）
 ├── web/                   # 前端静态文件（HTML/JS/CSS）
 ├── tests/                 # 单元测试套件
-├── run.py                 # 一键启动入口
+├── run.py                 # 一键启动入口（桌面模式）
+├── Dockerfile             # 多阶段 Docker 构建
+├── docker-compose.yml     # Docker Compose 编排
+├── docker-entrypoint.sh   # 容器启动脚本
 └── requirements.txt       # Python 依赖清单
 ```
 
@@ -290,10 +325,16 @@ pytest tests/test_pipeline_steps.py -v
 <details>
 <summary><b>Q：如何部署到 Linux 服务器？</b></summary>
 
-AetherSwap 的 FastAPI 架构完整支持无头 Linux 环境。直接运行：
+**推荐方式：Docker 部署**（无需安装 Python 环境）：
 
 ```bash
-python -m uvicorn app.main:app --host 0.0.0.0 --port 28472
+docker compose up -d
+```
+
+**手动部署**（需 Python 3.10+）：
+
+```bash
+python -m uvicorn app.api:app --host 0.0.0.0 --port 28472
 ```
 
 再通过外部浏览器访问服务器 IP 即可。**强烈建议配置 Nginx 反向代理与访问鉴权，不要将管理面板直接暴露在公网。**
@@ -344,7 +385,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 28472
   - [x] 微信支付
   - [ ] 支付宝支付
 - [ ] **移动端 / 响应式 UI 适配**
-- [ ] **Docker 一键部署支持**
+- [x] **Docker 一键部署支持**
 - [ ] **多账号并发任务调度**
 
 ---
