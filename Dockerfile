@@ -68,6 +68,9 @@ RUN mkdir -p /_config_init_backup \
 # Make entrypoint executable
 RUN chmod +x docker-entrypoint.sh
 
+# Pre-create disclaimer file so the aether user can touch it at runtime
+RUN touch /app/.agreed_disclaimer && chown aether:aether /app/.agreed_disclaimer
+
 # Create directories that will be volume-mounted
 RUN mkdir -p config log && chown -R aether:aether config log
 
