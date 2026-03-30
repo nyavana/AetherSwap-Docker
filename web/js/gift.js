@@ -43,7 +43,7 @@
         if (!host) return;
         const el = document.createElement('div');
         el.className = `toast toast-${type}`;
-        el.textContent = msg;
+        el.textContent = window.I18n ? window.I18n.translateText(msg) : msg;
         host.appendChild(el);
         setTimeout(() => el.remove(), 3500);
     }

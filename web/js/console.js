@@ -16,12 +16,13 @@ function _levelClass(level) {
 function _fmtTime(t) {
   if (t == null) return "";
   const d = new Date(t * 1000);
-  return d.toTimeString().slice(0, 8);
+  return window.I18n ? window.I18n.formatTime(d, { hour: "numeric", minute: "2-digit", second: "2-digit" }) : d.toTimeString().slice(0, 8);
 }
 function _lineToHtml(x) {
   const cls = _levelClass(x.level || "info");
   const time = _fmtTime(x.t);
-  const txt = `${time} [${x.level || "info"}] ${x.msg || ""}`;
+  const msg = window.I18n ? window.I18n.translateText(x.msg || "") : (x.msg || "");
+  const txt = `${time} [${x.level || "info"}] ${msg}`;
   // escape HTML special chars
   const safe = txt.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return `<span class="${cls}">${safe}</span>`;
@@ -34,7 +35,8 @@ function renderLogFull() {
   const filtered = logLines.filter((x) => {
     if (lv !== "all" && (x.level || "info") !== lv) return false;
     if (!q) return true;
-    const s = `[${x.level || "info"}] ${x.msg || ""}`.toLowerCase();
+    const msg = window.I18n ? window.I18n.translateText(x.msg || "") : (x.msg || "");
+    const s = `[${x.level || "info"}] ${msg}`.toLowerCase();
     return s.includes(q);
   });
   out.innerHTML = filtered.map(_lineToHtml).join("\n") + (filtered.length ? "\n" : "");
@@ -64,7 +66,7 @@ async function refreshLog() {
         if (i > 0) frag.appendChild(document.createTextNode("\n"));
         const span = document.createElement("span");
         span.className = _levelClass(l.level || "info");
-        span.textContent = `${_fmtTime(l.t)} [${l.level || "info"}] ${l.msg || ""}`;
+        span.textContent = `${_fmtTime(l.t)} [${l.level || "info"}] ${window.I18n ? window.I18n.translateText(l.msg || "") : (l.msg || "")}`;
         frag.appendChild(span);
       });
       frag.appendChild(document.createTextNode("\n"));
@@ -149,3 +151,10 @@ async function exportLog() {
     toast("导出失败", e.message || "请稍后再试");
   }
 }
+
+document.addEventListener("aetherswap:localechange", () => {
+  _updatePauseBtn();
+  _updateScrollBtn();
+  _updateBadge();
+  renderLogFull();
+});

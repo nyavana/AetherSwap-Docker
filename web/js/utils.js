@@ -1,6 +1,9 @@
 
 const API = '/api';
 const REFRESH_INTERVAL_DEFAULT = 60;
+function tr(text) {
+  return window.I18n ? window.I18n.translateText(text) : text;
+}
 function el(id) {
   return document.getElementById(id);
 }
@@ -9,7 +12,7 @@ function toast(title, detail = "") {
   if (!host) return;
   const node = document.createElement("div");
   node.className = "toast";
-  node.innerHTML = `<div class="t">${escapeHtml(title)}</div>${detail ? `<div class="d">${escapeHtml(detail)}</div>` : ""}`;
+  node.innerHTML = `<div class="t">${escapeHtml(tr(title))}</div>${detail ? `<div class="d">${escapeHtml(tr(detail))}</div>` : ""}`;
   host.appendChild(node);
   const ttl = 3500;
   setTimeout(() => {
@@ -40,7 +43,7 @@ async function fetchJson(url, opts = {}) {
     }
   }
   if (!res.ok) {
-    const msg = (data && (data.error || data.message)) || res.statusText || "请求失败";
+    const msg = (data && (data.error || data.message)) || res.statusText || tr("请求失败");
     throw new Error(msg);
   }
   return data;

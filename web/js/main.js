@@ -1,5 +1,6 @@
 
 function formatTimeHHMM(d = new Date()) {
+  if (window.I18n) return window.I18n.formatTime(d, { hour: "numeric", minute: "2-digit" });
   const hh = String(d.getHours()).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
@@ -104,10 +105,11 @@ async function refreshStatus() {
     const inline = el("status-text-inline");
     if (inline) inline.textContent = statusText;
     const stepDesc = d.step || "";
+    const displayStep = window.I18n ? window.I18n.translateText(stepDesc) : stepDesc;
     const item = d.progress_item || "";
-    const newText = stepDesc && item ? `${stepDesc}：${item}` : (stepDesc || item || "—");
+    const newText = displayStep && item ? `${displayStep}: ${item}` : (displayStep || item || "—");
     const nextItem = d.next_progress_item || "";
-    const subText = stepDesc && nextItem ? `${stepDesc}：${nextItem}` : nextItem;
+    const subText = displayStep && nextItem ? `${displayStep}: ${nextItem}` : nextItem;
     pushLyricLine(newText, subText);
     const pill = el("status-pill");
     if (pill) {

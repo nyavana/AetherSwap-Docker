@@ -1,6 +1,9 @@
 
 (function () {
     'use strict';
+    function _tr(text) {
+        return window.I18n ? window.I18n.translateText(text) : text;
+    }
     const _flag = (code, name) => `<img src="https://flagcdn.com/${code}.svg" width="16" alt="${name}" style="vertical-align: middle; margin-right: 4px; border-radius: 2px;"> ${name}`;
     const REGION_NAMES = {
         cn: _flag('cn', '国区'), ru: _flag('ru', '俄区'), kz: _flag('kz', '哈萨克'), ua: _flag('ua', '乌克兰'),
@@ -21,6 +24,7 @@
     let _initialized = false;
     const $ = id => document.getElementById(id);
     function timeAgo(ts) {
+        if (window.I18n) return window.I18n.formatRelativeTime(ts);
         if (!ts) return '从未';
         const diff = Date.now() / 1000 - ts;
         if (diff < 60) return '刚刚';
@@ -29,15 +33,28 @@
         return `${Math.floor(diff / 86400)} 天前`;
     }
     function fmtReviews(n) {
+        if (window.I18n) return window.I18n.formatCompactNumber(n || 0);
         if (!n) return '0';
         if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
         if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
         return String(n);
     }
     function fmtCNY(val) {
+        if (window.I18n) return window.I18n.formatCurrency(val, 'CNY');
         if (val == null) return '—';
         return `¥${val.toFixed(2)}`;
     }
+    function expandToggleLabel(expanded) {
+        return _tr(expanded ? '收起 ▴' : '查看全部区域 ▾');
+    }
+    window.toggleSteamDealsExpand = function toggleSteamDealsExpand(btn) {
+        const panel = btn.closest('.sg-card')?.querySelector('.sg-expand-panel');
+        if (!panel) return;
+        panel.classList.toggle('hidden');
+        const expanded = !panel.classList.contains('hidden');
+        btn.dataset.expanded = expanded ? '1' : '0';
+        btn.textContent = expandToggleLabel(expanded);
+    };
     function debounce(fn, ms) {
         let t;
         return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
@@ -68,7 +85,7 @@
                 if (_offset === 0 && emptyEl) emptyEl.classList.remove('hidden');
             }
             const tcEl = $('steam-deals-total-count');
-            if (tcEl) tcEl.textContent = `共 ${data.total} 款`;
+            if (tcEl) tcEl.textContent = _tr(`共 ${data.total} 款`);
         } catch (err) {
             console.error('加载失败:', err);
         } finally {
@@ -192,7 +209,7 @@
             ${pricePills}
             ${diffBadge}
           </div>
-          <button class="sg-expand-toggle" onclick="this.closest('.sg-card').querySelector('.sg-expand-panel').classList.toggle('hidden');this.textContent=this.textContent==='查看全部区域 ▾'?'收起 ▴':'查看全部区域 ▾'">查看全部区域 ▾</button>
+          <button class="sg-expand-toggle" data-expanded="0" onclick="toggleSteamDealsExpand(this)">${expandToggleLabel(false)}</button>
           <div class="sg-expand-panel hidden" id="${uid}">
             <table class="sg-expand-table"><tbody>${allRows}</tbody></table>
           </div>
@@ -226,13 +243,13 @@
     const REFRESH_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>`;
     async function fetchData() {
         const btn = $('steam-deals-fetch-btn');
-        if (btn) { btn.disabled = true; btn.textContent = '获取中...'; }
+        if (btn) { btn.disabled = true; btn.textContent = _tr('获取中...'); }
         try {
             await fetch('/api/steam-deals/fetch', { method: 'POST' });
             startPolling();
         } catch (err) {
             console.error('触发获取失败:', err);
-            if (btn) { btn.disabled = false; btn.innerHTML = REFRESH_SVG + ' 获取数据'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = REFRESH_SVG + ' ' + _tr('获取数据'); }
         }
     }
     function startPolling() {
@@ -250,18 +267,18 @@
             const tcEl = $('steam-deals-total-count');
             if (s.running) {
                 if (prog) { prog.classList.remove('hidden'); prog.textContent = s.message || `${s.progress}/${s.total}`; }
-                if (btn) { btn.disabled = true; btn.textContent = '获取中...'; }
+                if (btn) { btn.disabled = true; btn.textContent = _tr('获取中...'); }
             } else {
                 if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
                 if (prog) prog.classList.add('hidden');
-                if (btn) { btn.disabled = false; btn.innerHTML = REFRESH_SVG + ' 获取数据'; }
+                if (btn) { btn.disabled = false; btn.innerHTML = REFRESH_SVG + ' ' + _tr('获取数据'); }
                 loadGames(true);
             }
             if (info) {
                 const span = info.querySelector('span') || info;
-                span.textContent = s.last_update ? `上次更新：${timeAgo(s.last_update)}` : '尚未获取数据';
+                span.textContent = s.last_update ? _tr(`上次更新：${timeAgo(s.last_update)}`) : _tr('尚未获取数据');
             }
-            if (tcEl && s.total_games_in_db > 0) tcEl.textContent = `数据库 ${s.total_games_in_db} 款`;
+            if (tcEl && s.total_games_in_db > 0) tcEl.textContent = _tr(`数据库 ${s.total_games_in_db} 款`);
         } catch (err) { }
     }
     async function checkAutoRefresh() {
@@ -321,6 +338,11 @@
         obs.observe(panel, { attributes: true, attributeFilter: ['class'] });
         document.querySelectorAll('.nav-item').forEach(btn => {
             btn.addEventListener('click', () => { if (btn.dataset.tab === 'steam-deals') setTimeout(init, 50); });
+        });
+        document.addEventListener('aetherswap:localechange', () => {
+            if (!_initialized) return;
+            pollStatus();
+            loadGames(true);
         });
         if (panel.classList.contains('active')) setTimeout(init, 50);
     });

@@ -1,4 +1,7 @@
 from typing import Any, Optional
+
+SUPPORTED_UI_LOCALES = {"auto", "en-US", "zh-CN"}
+
 DEFAULTS = {
     "iflow": {
         "page_num": 1,
@@ -92,6 +95,7 @@ DEFAULTS = {
     },
     "system": {
         "exchange_rate_refresh_hours": 0,
+        "locale": "auto",
     },
     "proxy_pool": {
         "enabled": False,
@@ -121,6 +125,7 @@ def _validate_ranges(cfg: dict) -> dict:
     pipe = cfg.get("pipeline") or {}
     stab = cfg.get("stability") or {}
     buff = cfg.get("buff") or {}
+    system_cfg = cfg.get("system") or {}
 
     if isinstance(pipe.get("max_discount"), (int, float)):
         v = pipe["max_discount"]
@@ -157,6 +162,11 @@ def _validate_ranges(cfg: dict) -> dict:
         if v < 0:
             warnings.warn(f"[config] buff.price_tolerance={v} 不能为负数，已修正为0")
             buff["price_tolerance"] = 0.0
+
+    locale = system_cfg.get("locale")
+    if locale not in SUPPORTED_UI_LOCALES:
+        warnings.warn(f"[config] system.locale={locale!r} 无效，已修正为 'auto'")
+        system_cfg["locale"] = "auto"
 
     return cfg
 

@@ -136,6 +136,16 @@ async function loadConfig() {
   if (gDeviceId) gDeviceId.value = sc.device_id ?? "";
   const gFx = el("cfg-exchange-refresh-hours");
   if (gFx) gFx.value = sys.exchange_rate_refresh_hours ?? "";
+  const gLocale = el("cfg-locale");
+  if (gLocale) {
+    gLocale.value = sys.locale || "auto";
+    if (!gLocale.dataset.boundLocalePreview) {
+      gLocale.dataset.boundLocalePreview = "1";
+      gLocale.addEventListener("change", (e) => {
+        if (window.I18n) window.I18n.setPreference(e.target.value, false);
+      });
+    }
+  }
   const gUiScale = el("cfg-ui_scale");
   if (gUiScale) {
     gUiScale.value = sys.ui_scale || "0.7";
@@ -143,6 +153,9 @@ async function loadConfig() {
     gUiScale.addEventListener("change", (e) => {
       document.documentElement.style.zoom = e.target.value;
     });
+  }
+  if (window.I18n) {
+    window.I18n.syncFromConfig(sys.locale || "auto");
   }
   const sd = c.steam_deals || {};
   const gSdRefresh = el("cfg-steam-deals-auto-refresh-days");
@@ -247,6 +260,7 @@ function formToConfig() {
     },
     system: {
       exchange_rate_refresh_hours: el("cfg-exchange-refresh-hours") ? parseFloat(el("cfg-exchange-refresh-hours").value) || undefined : undefined,
+      locale: el("cfg-locale") ? el("cfg-locale").value : undefined,
       ui_scale: el("cfg-ui_scale") ? el("cfg-ui_scale").value : undefined,
     },
     steam_deals: {

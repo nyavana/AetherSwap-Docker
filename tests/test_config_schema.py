@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config_schema import DEFAULTS, _validate_ranges, merge, validate_and_fill
+from app.config_schema import DEFAULTS, SUPPORTED_UI_LOCALES, _validate_ranges, merge, validate_and_fill
 
 
 # ── merge() 深度合并测试 ──────────────────────────────────────────────────
@@ -50,6 +50,7 @@ def test_validate_字符串转int():
 def test_validate_缺少section用默认值():
     result = validate_and_fill({}, DEFAULTS)
     assert result["stability"]["cv_threshold"] == DEFAULTS["stability"]["cv_threshold"]
+    assert result["system"]["locale"] == "auto"
 
 
 # ── _validate_ranges() 范围校验 ───────────────────────────────────────────
@@ -89,3 +90,21 @@ def test_range_price_tolerance负数被限制():
         warnings.simplefilter("always")
         result = _validate_ranges(cfg)
     assert result["buff"]["price_tolerance"] >= 0.0
+
+
+def test_range_locale_invalid_falls_back_to_auto():
+    cfg = merge(DEFAULTS, {"system": {"locale": "fr-FR"}})
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = _validate_ranges(cfg)
+    assert result["system"]["locale"] == "auto"
+    assert any("system.locale" in str(w.message) for w in caught)
+
+
+def test_range_locale_supported_values_are_preserved():
+    for locale in SUPPORTED_UI_LOCALES:
+        cfg = merge(DEFAULTS, {"system": {"locale": locale}})
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            result = _validate_ranges(cfg)
+        assert result["system"]["locale"] == locale
